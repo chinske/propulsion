@@ -1,0 +1,352 @@
+\documentclass[12pt,twoside]{article}
+\usepackage{amsmath}
+\usepackage{textcomp}
+
+%opening
+\title{Tutorial: Engine Performance Modeling}
+\author{Christopher Chinske}
+\date{May 20, 2019}
+
+\begin{document}
+
+\maketitle
+
+\newpage
+\subparagraph{}
+\begin{flushleft}
+  Tutorial: Engine Performance Modeling
+\end{flushleft}
+\subparagraph{}
+\begin{flushleft}
+  Copyright 2019 Christopher Chinske.  This work is licensed under the Creative Commons Attribution-ShareAlike 4.0 International License. To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/4.0/ or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+\end{flushleft}
+\newpage
+
+\section{Introduction}
+One of the more powerful applications of the Gas Turbine Propulsion
+Toolbox (GTPT) is the ability to build a feasible engine performance
+model (EPM) for an engine using limited engine parameter data.  This
+tutorial will describe how to use GTPT to build an EPM for the
+CFM56-5B1.  The CFM56-5B1 is used on the Airbus A321.
+
+\subparagraph{}
+Before we begin, let's briefly discuss the problem at hand.  If you
+want to model an aircraft's performance, you will need a reasonable
+engine performance model.  The engine performance model, also known as
+the \emph{engine deck}, returns thrust, $T$, and specific fuel
+consumption, $s$, as a function of flight condition (e.g., altitude,
+Mach number, and thrust lever angle).
+\begin{equation}
+  T = f(h,M,TLA)
+\end{equation}
+\begin{equation}
+  s = f(h,M,TLA)
+\end{equation}
+
+However, aircraft engine suppliers generally do not publicly release
+the engine deck.  Even when working within a leading research
+organization, it may be difficult or cost-prohibitive to obtain this
+data.  Engine parameter data, such as component efficiencies, are even
+more difficult to come by.  Only limited data about an engine may be
+publicly available.
+
+\subparagraph{}
+A good source of engine parameter data is the \emph{ICAO Aircraft
+  Engine Emissions Databank} \cite{icaoed}.  This data set lists
+bypass ratio, pressure ratio, rated output, and fuel flow for many
+engines.  Since you have engine performance (i.e., rated output and
+fuel flow) for a single flight condition (rated output, sea level
+static thrust), you can use this limited engine performance data and
+GTPT to determine a feasible set of component efficiencies that match
+this performance point.  This allows you to build a feasible engine
+deck.
+
+\subparagraph{}
+Now that we have an idea of where we are going, we can concisely state
+the problem statement.
+
+\subparagraph{Problem Statement}
+Use GTPT to build an engine performance model (EPM) for the CFM56-5B1
+engine.  Determine maximum thrust at 10,000~ft~MSL and Mach~0.4.
+
+\section{Solution}
+\subsection{Configuration}
+From the propulsion top level directory, add the following paths.\\*
+\\*
+\texttt{addpath optimize}\\*
+\texttt{addpath epm}
+
+\subsection{Known Engine Parameters}\label{sec:kno-eng-par}
+From the \emph{ICAO Aircraft Engine Emissions Databank} \cite{icaoed},
+the bypass ratio, compressor pressure ratio, rated output, and takeoff
+fuel flow are known.
+
+\begin{align}
+  \alpha = 5.7 \label{alpha}\\*
+  \pi_c = 30.2 \label{pi_c}\\*
+  F = 133.45 \times 10^3 ~\text{N} \label{F}\\*
+  f = 1.359 ~\text{kg/s}
+\end{align}
+
+Therefore, the thrust specific fuel consumption (TSFC) is
+
+\begin{equation}
+  s = \frac{1.359 ~\text{kg/s}}{133.45 \times 10^3 ~\text{N}} \frac{10^6 ~\text{mg}}{1 ~\text{kg}} = 10.184 ~\frac{\frac{\text{mg fuel}}{\text{s}}}{\text{N thrust}} \label{tsfc}
+\end{equation}
+
+\subsection{Build Optimization Script}
+Edit the optimization script \texttt{optimize/s\_seek.m}.  The
+optimization script includes four distinct parts.
+\begin{enumerate}
+
+\item The first part defines the lower and upper bounds for each free
+  (i.e., unknown) parameter.  For example: \\*
+\\*
+\texttt{lb\_pi\_d = 0.98;}\\*
+\texttt{ub\_pi\_d = 0.998;}\\*
+\\*
+defines the lower bound and upper bound of the inlet pressure ratio,
+$\pi_d$.  Table 6.3 in Oates \cite{oates} provides typical ranges of
+parameters.  Definitions for these parameters may be found in the
+Interface Control Document (ICD) provided with the program.
+
+\item Then, vectors of the lower bound and upper bound values are built. \\*
+  \\*
+  \texttt{lb = [lb\_pi\_d; ...\\*
+      lb\_pi\_b; ...\\*
+      lb\_pi\_n; ...\\*
+      lb\_pi\_n2; ...\\*
+      lb\_eta\_b; ...\\*
+      lb\_e\_c; ...\\*
+      lb\_e\_c2; ...\\*
+      lb\_e\_t; ...\\*
+      lb\_tau\_lam; ...\\*
+      lb\_pi\_c2];\\*
+    \\*
+  ub = [ub\_pi\_d; ...\\*
+      ub\_pi\_b; ...\\*
+      ub\_pi\_n; ...\\*
+      ub\_pi\_n2; ...\\*
+      ub\_eta\_b; ...\\*
+      ub\_e\_c; ...\\*
+      ub\_e\_c2; ...\\*
+      ub\_e\_t; ...\\*
+      ub\_tau\_lam; ...\\*
+      ub\_pi\_c2];}\\*
+
+\item Next, an initial guess vector is built.  A good initial guess
+  puts the guess values between the lower bound and upper bound
+  values. \\*
+  \\*
+  \texttt{x0 = (lb+ub)./2;}\\*
+
+\item Finally, the function \texttt{sqp} is called.  \textbf{For this tutorial, change the function handle to \texttt{@phi\_a321}, and save the file.}\\*
+  \\*
+  \texttt{x = sqp(x0,@phi\_a321,[],[],lb,ub);}
+
+\end{enumerate}
+
+\subparagraph{}
+This script will return the vector \texttt{x}, which will contain the values of the free parameters in the same order as they were defined in the lower/upper bound vectors.  Therefore, in this tutorial, \texttt{x} will consist of the following parameters.\\*
+\\*
+$\pi_d$\\*
+$\pi_b$\\*
+$\pi_n$\\*
+$\pi_{n'}$\\*
+$\eta_b$\\*
+$e_c$\\*
+$e_{c'}$\\*
+$e_t$\\*
+$\tau_\lambda$\\*
+$\pi_{c'}$
+
+\subsection{Build Objective Function}
+Copy the file \texttt{optimize/phi.m} to
+\texttt{optimize/phi\_a321.m}.  Open the file \texttt{phi\_a321.m} for
+editing.
+
+\subparagraph{}
+The objective function defines the target TSFC and the fixed (i.e.,
+known) parameters.  The objective function then calls the appropriate
+cycle analysis function and computes the absolute difference between
+the computed TSFC and the target TSFC.  In this tutorial, we are
+considering a subsonic transport turbofan engine.  The cycle analysis
+function \texttt{nonideal\_turbofan2} applies specifically to this
+case --- a turbofan with convergent exit nozzles.  Specifically,
+\texttt{nonideal\_turbofan2} applies to subsonic aircraft, separate
+stream turbofan engines, no afterburning, and cases where the pressure
+ratio across nozzles is small.
+
+\subparagraph{}
+Rename the function to match the file name. \\*
+\\*
+\texttt{function s\_err = phi\_a321(x)} \\*
+\\*
+Update the target TSFC to match \eqref{tsfc}. \\*
+\\*
+\texttt{s\_goal = 10.184;} \\*
+\\*
+Update the compressor pressure ratio and bypass ratio to match \eqref{pi_c} and \eqref{alpha}, respectively. \\*
+\\*
+\texttt{inputs.pi\_c = 30.2;} \\*
+\texttt{inputs.alpha = 5.7;} \\*
+\\*
+Then, save the file.
+
+\subsection{Run Optimization Script}\label{sec:run-opt-scr}
+In the command window, run the optimization script. \\*
+\\*
+\texttt{s\_seek} \\*
+\\*
+The variable \texttt{x} contains the determined values for the free parameters.\\*
+\\*
+\begin{align}
+  \pi_d & = 0.98110 \nonumber \\*
+  \pi_b & = 0.93547 \nonumber \\*
+  \pi_n & = 0.99066 \nonumber \\*
+  \pi_{n'} & = 0.99073 \nonumber \\*
+  \eta_b & = 0.96728 \\*
+  e_c & = 0.92144 \nonumber \\*
+  e_{c'} & = 0.87762 \nonumber \\*
+  e_t & = 0.86339 \nonumber \\*
+  \tau_\lambda & = 5.35964 \nonumber \\*
+  \pi_{c'} & = 1.34782 \nonumber
+\end{align}
+
+\subsection{Run the Cycle Analysis Function}\label{sec:run-cyc-ana}
+The cycle analysis function outputs additional information that will be required for the engine performance model.  First, we will build an inputs structure array.  Then, we will call the cycle analysis function.
+
+\subparagraph{}
+To build an inputs structure array, call the \texttt{build\_inputs} function.\\*
+\\*
+\texttt{inputs = build\_inputs;}\\*
+\\*
+Enter the inputs values at the prompts.\\*
+\\*
+\texttt{Primary stream afterburning flag: 0 \\*
+Secondary stream afterburning flag: 0 \\*
+T0 (K): 303.15 \\*
+Ratio of specific heats, compressor: 1.4 \\*
+Ratio of specific heats, turbine: 1.35 \\*
+Specific heat of air Cp (J/(kg*K)), compressor: 1004.9 \\*
+Specific heat of air Cp (J/(kg*K)), turbine: 1004.9 \\*
+Fuel heating value (J/kg): 4.4194E7 \\*
+Pressure ratio, inlet: 0.98110 \\*
+Pressure ratio, burner: 0.93547 \\*
+Pressure ratio, PRI nozzle: 0.99066 \\*
+Pressure ratio, SEC nozzle: 0.99073 \\*
+Efficiency, burner: 0.96728 \\*
+Efficiency, mechanical: 1 \\*
+Polytropic efficiency, PRI compressor: 0.92144 \\*
+Polytropic efficiency, SEC compressor: 0.87762 \\*
+Polytropic efficiency, turbine: 0.86339 \\*
+p9/p0, PRI: 1 \\*
+p9/p0, SEC: 1 \\*
+tau\_lam: 5.35964 \\*
+Compressor pressure ratio: 30.2 \\*
+Fan pressure ratio: 1.34782 \\*
+Flight Mach number: 0 \\*
+Bypass ratio: 5.7}
+
+\subparagraph{}
+Call the cycle analysis function in verbose mode.\footnote{You may want to turn pagination off before calling the cycle analysis function by executing the command \texttt{more off}.}\\*
+\\*
+\texttt{[f\_mdot, s, inputs] = nonideal\_turbofan2(inputs,1);}\\*
+\\*
+
+Note the outputs of the cycle analysis function.\\*
+\\*
+\texttt{Etta ch: 0.88872 \\*
+Etta c': 0.87234 \\*
+\\*
+M0*u9/u0: 1.481 \\*
+M0*u9'/u0: 0.63971 \\*
+\\*
+Turbine temperature ratio: 0.54958 \\*
+Turbine efficiency: 0.90069 \\*
+Fan temperature ratio: 1.1021 \\*
+Fuel-to-air ratio: 0.018396}
+
+\subsection{Build Engine Performance Model}
+Copy the file \texttt{epm/example\_epm.m} to \texttt{epm/epm\_a321.m}.
+Open the file \texttt{epm\_a321.m} for editing.  Rename the function
+to match the file name. \\*
+\\*
+\texttt{function [s,f] = epm\_a321(atmos,altitude,mach,throttle\_fraction)}
+
+\subparagraph{}
+The engine performance model function takes as inputs: altitude (ft), Mach number, throttle fraction (1 implies maximum TT4), and the reference atmosphere \texttt{atmos}.  GTPT includes a reference atmosphere lookup table.  However, if you have a functional atmosphere (e.g., \texttt{atmosisa}), you could build the engine performance model to utilize that function instead of taking \texttt{atmos} as an input.
+
+Line 7 includes a comment noting the engine.  Update the comment for the present engine. \\*
+\\*
+\texttt{\% Engine Performance Modeling, CFM 56-5B1}
+
+\subparagraph{}
+Next, we assume that the engine parameters remain constant throughout its operating envelope.  Reference, or on-design, quantities are denoted by the suffix \texttt{r}.  Using the values in sections \ref{sec:kno-eng-par}, \ref{sec:run-opt-scr}, and \ref{sec:run-cyc-ana}, update the ``build inputs'' content of \texttt{epm\_a321.m}.\\*
+\\*
+\texttt{\% build inputs \\*
+inputs.gam\_t = 1.35; \\*
+inputs.cp\_c = 1004.9; \\*
+inputs.cp\_t = 1004.9; \\*
+inputs.eta\_ch = 0.88872; \\*
+inputs.eta\_c2 = 0.87234; \\*
+inputs.eta\_b = 0.96728; \\*
+inputs.pi\_d = 0.98110; \\*
+inputs.pi\_b = 0.93547; \\*
+inputs.pi\_n = 0.99066; \\*
+inputs.pi\_n2 = 0.99073; \\*
+inputs.h = 4.4194E7; \\*
+inputs.m0r = 0; \\*
+inputs.tau\_lamr = 5.35964; \\*
+inputs.pi\_c2r = 1.34782; \\*
+inputs.pi\_cr = 30.2; \\*
+inputs.alphar = 5.7; \\*
+inputs.eta\_chr = 0.88872; \\*
+inputs.eta\_c2r = 0.87234; \\*
+inputs.eta\_br = 0.96728; \\*
+inputs.pi\_dr = 0.98110; \\*
+inputs.pi\_br = 0.93547; \\*
+inputs.pi\_nr = 0.99066; \\*
+inputs.pi\_n2r = 0.99073; \\*
+inputs.t0r = 303.15; \\*
+inputs.m0u9u0r = 1.481; \\*
+inputs.m0u92u0r = 0.63971; \\*
+inputs.tau\_tr = 0.54958; \\*
+inputs.eta\_tr = 0.90069; \\*
+inputs.tau\_c2r = 1.1021; \\*
+inputs.fr = 0.018396;}
+
+\newpage
+Update the ``performance conditions'' content of \texttt{epm\_a321.m}.  \texttt{F\_REF} in lbf (from \eqref{F}) is 30,000.  \texttt{TT4\_MAX} is given by
+\begin{align}
+  T_{t4} &= T_0~\tau_\lambda\\*
+  T_{t4~\texttt{MAX}} &= (303.15)(5.35964) = 1624.8 ~\text{K}
+\end{align}
+The updated code is given below. \\*
+\\*
+\texttt{\% performance conditions \\*
+f\_ref = 30000; \\*
+tt4\_max = 1624.8;} \\*
+\\*
+Then, save the file.
+
+\subsection{Utilize the Engine Performance Model}
+To determine the maximum thrust at 10,000~ft~MSL and Mach~0.4, utilize the engine performance model by executing the following commands. \\*
+\\*
+\texttt{load atmos.dat}\\*
+\texttt{[s, thrust] = epm\_a321(atmos,10000,0.4,1)}\\*
+\\*
+You should find that the thrust is 19,243~lbf.
+
+\section{Additional Notes}
+In this example, we used a $T_0$ of 303.15~K, which is Std + 15~\textcelsius{}.  Per the engine's type certificate data sheet (TCDS) \cite{tcds}, takeoff thrust is nominally independent of ambient temperature (flat rated) up to Std + 10~\textcelsius{}.  If you run the EPM for sea level, static thrust at Std (i.e., 288.15~K), you will find that the EPM over-predicts the takeoff thrust, which is rated at 30~000~lbf.  How would you modify the EPM to output 30~000~lbf up to Std + 15~\textcelsius{}?
+
+Similarly, according to \cite{tcds}, maximum continuous is nominally independent of ambient temperature (flat rated) up to ambient temperature of Std + 10~\textcelsius{}, and maximum continuous sea level, static thrust is rated at 29~090~lbf.  How would you modify the EPM to employ maximum continuous thrust?
+
+\begin{thebibliography}{99}
+\bibitem{icaoed} European Union Aviation Safety Agency. (2018). \emph{ICAO Aircraft engine emissions databank} [Data File]. Available from https://www.easa.europa.eu/easa-and-you/environment/icao-aircraft-engine-emissions-databank
+\bibitem{oates} Oates, G. C. (1997). \emph{Aerothermodynamics of Gas Turbine and Rocket Propulsion} (3rd ed.). American Institute of Aeronautics and Astronautics.
+\bibitem{tcds} U.S. Department of Transportation. (2018). \emph{Type Certificate Data Sheet E37NE} (TCDS Number E37NE, Revision 14).
+\end{thebibliography}
+
+\end{document}
