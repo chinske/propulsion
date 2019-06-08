@@ -14,8 +14,8 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with GTPT.  If not, see <https://www.gnu.org/licenses/>.
-release=propulsion-1.0.0-rc1
+release=propulsion-1.0.0
 mkdir ${release}
-cp -r *.m LICENSE README doc epm optimize ${release}
+cp -r *.m COPYING README doc epm optimize ${release}
 tar -czvf ${release}.tar.gz ${release}
 rm -rf ${release}
