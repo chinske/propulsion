@@ -21,5 +21,11 @@ which are distributed with the book by Oates.
 Installation
 ------------
 
-Copy all of the GTPT files and folders to a convenient location, and
-add that location to your GNU Octave (or MATLAB) path.
+To build a release, check out the desired release branch (or tag) in
+the git repository.  Execute the mk-release script, which will
+generate a GNU Zip tar file.
+
+If you downloaded a .tar.gz file, or if you built a .tar.gz file as
+described above, extract the package.  Copy all of the GTPT files and
+folders to a convenient location, and add that location to your GNU
+Octave (or MATLAB) path.
